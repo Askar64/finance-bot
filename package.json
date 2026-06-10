@@ -1,0 +1,9 @@
+{
+  "name": "finance-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot for tracking income and expenses in Google Sheets",
+  "dependencies": {
+    "google-auth-library": "^9.0.0",
+    "googleapis": "^140.0.0"
+  }
+}
