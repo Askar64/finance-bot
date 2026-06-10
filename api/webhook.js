@@ -3,7 +3,7 @@ const { google } = require('googleapis');
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-const SHEET_NAME = process.env.SHEET_NAME || 'Учёт расходов стройки';
+const SHEET_NAME = process.env.SHEET_NAME || 'Sheet1';
 
 // Категории для автоопределения
 const CATEGORIES = {
@@ -24,15 +24,15 @@ function detectCategory(text) {
 function parseMessage(text) {
   const t = text.trim();
 
-  // Извлекаем сумму — первое число в сообщении
-  const amountMatch = t.match(/\d[\d\s]*[.,]?\d*/);
+  // Извлекаем сумму — число в начале (может быть с пробелами как разделители тысяч: 120 000)
+  const amountMatch = t.match(/^[\d\s]+/);
   if (!amountMatch) return null;
 
-  const amount = parseFloat(amountMatch[0].replace(/\s/g, '').replace(',', '.'));
+  const amount = parseFloat(amountMatch[0].replace(/\s/g, ''));
   if (!amount || amount <= 0) return null;
 
   // Описание — всё что после суммы
-  const afterAmount = t.slice(t.indexOf(amountMatch[0]) + amountMatch[0].length).trim();
+  const afterAmount = t.slice(amountMatch[0].length).trim();
   const description = afterAmount.replace(/[₸тгтенгеруб]/gi, '').trim() || '—';
 
   const category = detectCategory(text);
