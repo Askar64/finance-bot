@@ -3,60 +3,41 @@ const { google } = require('googleapis');
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-const SHEET_NAME = 'Учёт доходов и расходов';
+const SHEET_NAME = process.env.SHEET_NAME || 'Sheet1';
 
 // Категории для автоопределения
-const EXPENSE_CATEGORIES = {
-  'еда|кафе|ресторан|обед|ужин|завтрак|продукты|магазин|супермаркет|vitamart|market': 'Еда',
-  'такси|убер|яндекс|транспорт|автобус|метро|бензин|парковка': 'Транспорт',
-  'аптека|врач|здоровье|лечение|медицина': 'Здоровье',
-  'одежда|обувь|шоппинг': 'Одежда',
-  'связь|телефон|интернет': 'Связь',
-  'подписка|netflix|spotify|canva|make|vercel': 'Подписки',
-  'коммуналка|свет|газ|вода|квартира|аренда': 'Коммуналка',
-  'развлечения|кино|игры|бар': 'Развлечения',
-  'сигарет|табак|алкоголь|пиво': 'Личное',
+const CATEGORIES = {
+  'цемент|кирпич|арматура|песок|щебень|блок|бетон|дерево|доска|брус|гвозд|шуруп|краска|штукатурк|плитк|ламинат|обои|утеплител|пенопласт|металл|труб|провод|кабел|розетк|выключател|стекл|окн|двер|замок': 'Материалы',
+  'рабочи|рабочих|мастер|бригад|строител|монтаж|сварщик|электрик|плотник|маляр|зарплат|оплат|труд': 'Рабочие',
+  'кран|экскаватор|бульдозер|техника|аренд|инструмент|перфоратор|бетономешалк|генератор|леса|подъемник': 'Техника/Аренда',
+  'доставк|привез|перевез|машина|газел|камаз|транспорт': 'Доставка',
 };
 
-const INCOME_CATEGORIES = {
-  'студия|дизайн|проект|визуализация|интерьер|предоплата|оплата': 'Студия',
-  'страхование|авр|счет|номад|иншуранс': 'Страхование',
-  'зарплата|salary': 'Зарплата',
-  'фриланс|заказ': 'Фриланс',
-};
-
-function detectCategory(text, isExpense) {
+function detectCategory(text) {
   const lower = text.toLowerCase();
-  const categories = isExpense ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
-  for (const [keywords, category] of Object.entries(categories)) {
+  for (const [keywords, category] of Object.entries(CATEGORIES)) {
     if (new RegExp(keywords).test(lower)) return category;
   }
-  return isExpense ? 'Прочие расходы' : 'Прочие доходы';
+  return 'Прочее';
 }
 
 function parseMessage(text) {
-  const lower = text.toLowerCase().trim();
+  const t = text.trim();
 
-  // Определяем тип
-  let type = null;
-  if (/^(расход|трата|потратил|купил|покупка|минус)/.test(lower)) type = 'Расход';
-  else if (/^(доход|получил|заработал|пришло|плюс|поступление)/.test(lower)) type = 'Доход';
-
-  if (!type) return null;
-
-  // Извлекаем сумму (число с возможными пробелами и символами ₸, тг, тенге, руб)
-  const amountMatch = text.match(/[\d\s]+[.,]?\d*/);
+  // Извлекаем сумму — первое число в сообщении
+  const amountMatch = t.match(/\d[\d\s]*[.,]?\d*/);
   if (!amountMatch) return null;
+
   const amount = parseFloat(amountMatch[0].replace(/\s/g, '').replace(',', '.'));
   if (!amount || amount <= 0) return null;
 
   // Описание — всё что после суммы
-  const afterAmount = text.slice(text.indexOf(amountMatch[0]) + amountMatch[0].length).trim();
-  const description = afterAmount.replace(/[₸тгтенгеруб\.]/gi, '').trim() || '—';
+  const afterAmount = t.slice(t.indexOf(amountMatch[0]) + amountMatch[0].length).trim();
+  const description = afterAmount.replace(/[₸тгтенгеруб]/gi, '').trim() || '—';
 
-  const category = detectCategory(text, type === 'Расход');
+  const category = detectCategory(text);
 
-  return { type, amount, category, description };
+  return { amount, category, description };
 }
 
 async function appendToSheet(row) {
@@ -71,10 +52,10 @@ async function appendToSheet(row) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${SHEET_NAME}!A:F`,
+    range: `${SHEET_NAME}!A:E`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
-      values: [[date, row.type, row.category, row.description, row.amount, '']],
+      values: [[date, row.category, row.description, row.amount, '']],
     },
   });
 }
@@ -99,10 +80,13 @@ export default async function handler(req, res) {
 
     // Команда /start
     if (text === '/start') {
-      await sendMessage(chatId, 
-        `👋 <b>Бот учёта финансов</b>\n\nФормат сообщений:\n\n` +
-        `<b>Расход:</b>\n<code>расход 2710 еда сигареты и жвачка</code>\n\n` +
-        `<b>Доход:</b>\n<code>доход 150000 студия предоплата за проект</code>\n\n` +
+      await sendMessage(chatId,
+        `👷 <b>Бот учёта расходов стройки</b>\n\n` +
+        `Просто напиши сумму и описание:\n\n` +
+        `<code>2710 цемент 5 мешков</code>\n` +
+        `<code>15000 доставка кирпича</code>\n` +
+        `<code>50000 рабочие за неделю</code>\n\n` +
+        `Категории: Материалы, Рабочие, Техника/Аренда, Доставка, Прочее\n` +
         `Категория определяется автоматически ✨`
       );
       return res.status(200).json({ ok: true });
@@ -112,18 +96,17 @@ export default async function handler(req, res) {
 
     if (!parsed) {
       await sendMessage(chatId,
-        `❓ Не понял формат. Попробуй:\n\n` +
-        `<code>расход 5000 кафе обед</code>\n` +
-        `<code>доход 200000 студия оплата проекта</code>`
+        `❓ Не понял. Напиши сумму и описание:\n\n` +
+        `<code>2710 цемент 5 мешков</code>\n` +
+        `<code>50000 рабочие за неделю</code>`
       );
       return res.status(200).json({ ok: true });
     }
 
     await appendToSheet(parsed);
 
-    const emoji = parsed.type === 'Расход' ? '🔴' : '🟢';
     await sendMessage(chatId,
-      `${emoji} <b>${parsed.type} записан!</b>\n\n` +
+      `✅ <b>Записано!</b>\n\n` +
       `💰 Сумма: <b>${parsed.amount.toLocaleString('ru-RU')} ₸</b>\n` +
       `📂 Категория: ${parsed.category}\n` +
       `📝 Описание: ${parsed.description}`
