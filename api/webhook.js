@@ -25,7 +25,7 @@ function parseMessage(text) {
   const t = text.trim();
 
   // Извлекаем сумму — число в начале (может быть с пробелами как разделители тысяч: 120 000)
-  const amountMatch = t.match(/^[\d\s]+/);
+  const amountMatch = t.match(/^\d[\d\s,.]*/);
   if (!amountMatch) return null;
 
   const amount = parseFloat(amountMatch[0].replace(/\s/g, ''));
