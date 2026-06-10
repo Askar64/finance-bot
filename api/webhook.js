@@ -3,7 +3,7 @@ const { google } = require('googleapis');
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-const SHEET_NAME = 'Лист1';
+const SHEET_NAME = 'Учёт доходов и расходов';
 
 // Категории для автоопределения
 const EXPENSE_CATEGORIES = {
